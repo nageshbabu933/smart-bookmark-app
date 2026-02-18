@@ -2,6 +2,14 @@
 
 A bookmark manager with **Google sign-in**, **private per-user bookmarks**, and **real-time sync** across tabs. Built with Next.js (App Router), Supabase, and Tailwind CSS.
 
+## What this project does
+
+- **Google-only authentication** (no email/password)
+- **Add bookmark** (URL + optional title)
+- **Private per-user data** using Supabase Row Level Security (RLS)
+- **Real-time updates** across tabs using Supabase Realtime
+- **Delete** your own bookmarks
+
 ---
 
 ## Prerequisites
@@ -52,7 +60,8 @@ npm install
    ```
 
    Replace with your **Project URL** and **anon public** key from Step 2.
- ---- .env has all my credentials to access the project 
+
+**Important**: Do **not** commit `.env.local` to GitHub. It contains credentials.
  
 ### Step 4: Create the database table and policies
 
@@ -139,25 +148,35 @@ Open [http://localhost:3000](http://localhost:3000) in your browser. You should 
 
 ---
 
-## Deploy on Vercel
-
-1. Push this project to a **public GitHub** repo.
-2. Go to [vercel.com](https://vercel.com) → **Add New** → **Project** → import the repo.
-3. **Root Directory**: If your repo root is the folder that **contains** `smart-bookmark-app` (e.g. you have `SmartBookMarkApp/smart-bookmark-app/`), set **Root Directory** to `smart-bookmark-app`. If your repo root **is** the app (e.g. `package.json` is at the repo root), leave Root Directory blank.
-4. **Environment Variables** (required for the app; build can run without them):
-   - `NEXT_PUBLIC_SUPABASE_URL` = your Supabase project URL
-   - `NEXT_PUBLIC_SUPABASE_ANON_KEY` = your Supabase anon key
-5. Deploy. After deploy, in Supabase **Authentication** → **URL Configuration**, set **Site URL** to your Vercel URL and add `https://your-app.vercel.app/**` to **Redirect URLs** so Google sign-in works.
-
-### If the Vercel build fails
-
-- **Wrong root**: Build runs in the folder that has `package.json` and `next.config.ts`. If you see "Cannot find module" or "No package.json", set **Root Directory** in Vercel to the folder that contains the Next.js app (e.g. `smart-bookmark-app`).
-- **ESLint/TypeScript**: The project is set to **ignore ESLint during builds** so lint issues don’t fail the deploy. Fix lint with `npm run lint` locally. If the failure is TypeScript, fix the reported errors and push again.
-- **Env vars**: Add `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` in Vercel → Project → Settings → Environment Variables, then redeploy.
-
----
-
 ## Tech stack
 
 - **Next.js** 16 (App Router), **React** 19, **Tailwind CSS**
 - **Supabase**: Auth (Google OAuth), PostgreSQL, Realtime
+
+---
+
+## Challenges faced (and how I solved them)
+
+- **`create-next-app` naming restrictions**
+  - **Problem**: Project creation failed when the folder name used capital letters (npm naming rules).
+  - **Solution**: Used a lowercase, hyphenated app folder name: `smart-bookmark-app`.
+
+- **Interactive installer prompts**
+  - **Problem**: The Next.js installer prompted for React Compiler settings, which blocks automated setup.
+  - **Solution**: Scaffolded the project using `--no-react-compiler` so setup can run non-interactively.
+
+- **Private data per user (security)**
+  - **Problem**: Without proper database rules, users could read/write other users’ bookmarks.
+  - **Solution**: Added **Row Level Security (RLS)** to the `bookmarks` table with policies enforcing `auth.uid() = user_id` for select/insert/update/delete.
+
+- **Real-time updates across multiple tabs**
+  - **Problem**: Bookmarks should appear instantly in another open tab without refresh.
+  - **Solution**: Enabled Supabase **Realtime** on the `bookmarks` table and subscribed to `postgres_changes` filtered by `user_id`, reloading the list on changes.
+
+- **OAuth redirect configuration**
+  - **Problem**: Google OAuth can fail if redirect URIs don’t match exactly (local vs production).
+  - **Solution**: Configured the **Supabase callback URL** (`.../auth/v1/callback`) in Google Cloud, and added the local app URL in Supabase **URL Configuration** for local development.
+
+- **React hooks + linting constraints**
+  - **Problem**: Some ESLint rules warn about synchronous `setState` calls inside `useEffect` bodies.
+  - **Solution**: Adjusted effect logic to avoid synchronous state updates that trigger the lint rule while keeping behavior correct.
